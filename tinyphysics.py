@@ -53,14 +53,8 @@ class TinyPhysicsModel:
     options.intra_op_num_threads = 1
     options.inter_op_num_threads = 1
     options.log_severity_level = 3
-    if 'CUDAExecutionProvider' in ort.get_available_providers():
-      if debug:
-        print("ONNX Runtime is using GPU")
-      provider = ('CUDAExecutionProvider', {'cudnn_conv_algo_search': 'DEFAULT'})
-    else:
-      if debug:
-        print("ONNX Runtime is using CPU")
-      provider = 'CPUExecutionProvider'
+
+    provider = 'CPUExecutionProvider'
 
     with open(model_path, "rb") as f:
       self.ort_session = ort.InferenceSession(f.read(), options, [provider])
@@ -121,6 +115,7 @@ class TinyPhysicsSimulator:
     return processed_df
 
   def sim_step(self, step_idx: int) -> None:
+    print(f"sim_step method called at step {step_idx}")  # To track the simulation's progress in sim_step
     pred = self.sim_model.get_current_lataccel(
       sim_states=self.state_history[-CONTEXT_LENGTH:],
       actions=self.action_history[-CONTEXT_LENGTH:],
@@ -135,6 +130,7 @@ class TinyPhysicsSimulator:
     self.current_lataccel_history.append(self.current_lataccel)
 
   def control_step(self, step_idx: int) -> None:
+    print(f"control_step method called at step {step_idx}")  # To track the simulation's progress in control_step
     if step_idx >= CONTROL_START_IDX:
       action = self.controller.update(self.target_lataccel_history[step_idx], self.current_lataccel, self.state_history[step_idx])
     else:
@@ -174,6 +170,10 @@ class TinyPhysicsSimulator:
     return {'lataccel_cost': lat_accel_cost, 'jerk_cost': jerk_cost, 'total_cost': total_cost}
 
   def rollout(self) -> None:
+    print("rollout method called")  # To confirm the invocation of the rollout method
+    print("Starting simulation...")  # Added at the beginning of the `rollout` method
+    print(f"Data length: {len(self.data)}")  # This will confirm the data length is as expected
+    print("Entering simulation loop...")  # This will confirm we've entered the loop
     if self.debug:
       plt.ion()
       fig, ax = plt.subplots(4, figsize=(12, 14), constrained_layout=True)
@@ -191,7 +191,10 @@ class TinyPhysicsSimulator:
     if self.debug:
       plt.ioff()
       plt.show()
-    return self.compute_cost()
+    costs = self.compute_cost()
+    print("Simulation completed.")  # Added at the end of the `rollout` method
+    print(f"Computed costs: {costs}")  # Added at the end of the `rollout` method to print out the costs
+    return costs
 
 
 if __name__ == "__main__":
@@ -207,6 +210,7 @@ if __name__ == "__main__":
   controller = CONTROLLERS[args.controller]()
 
   data_path = Path(args.data_path)
+  print(f"Processing file/directory: {args.data_path}")  # Added before the call to `rollout` in the main block
   if data_path.is_file():
     sim = TinyPhysicsSimulator(tinyphysicsmodel, args.data_path, controller=controller, debug=args.debug)
     costs = sim.rollout()
@@ -227,3 +231,4 @@ if __name__ == "__main__":
     plt.title('costs Distribution')
     plt.legend()
     plt.show()
+  print("Finished processing.")  # Added after the call to `rollout` in the main block
